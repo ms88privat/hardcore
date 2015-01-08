@@ -8,7 +8,7 @@ describe('ms.hardcore', function(){
   it('should instantiate a Collection with a name', 
     inject(function(collection) {
 
-    var instance = collection.init('NameOfCollection');
+    var instance = collection.init('NameOfCollection', {});
 
     console.log('Collection', instance);
 
@@ -16,5 +16,25 @@ describe('ms.hardcore', function(){
 
   }));
 
+  describe('Collection instance', function(){
 
+    var instance;
+
+    beforeEach(inject(function(collection) {
+      instance = collection.init('NameOfCollection', {});
+    }));
+
+    it('should have default options', function(){
+
+      // making sure instance is allright
+      expect(instance.name).toEqual('NameOfCollection');
+
+      // test all default states
+      expect(instance.primKey).toEqual('id');
+      expect(instance.cache).toBe(true);
+      expect(instance.store).toBe(false);
+      
+    });
+
+  });
 });

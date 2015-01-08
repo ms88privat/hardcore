@@ -2,12 +2,18 @@
 /*jshint esnext: true */
 
 class Collection {
-	constructor(name, args) {
+	constructor(name, {
+		cache: cache = true,
+		store: store = false,
+		primKey: primKey = 'id'
+	}) {
 		this.name = name;
-
-		return this;
-
+		this.cache = cache;
+		this.store = store;
+		this.primKey = primKey;
 	}
+
 }
+
 
 export default Collection;
