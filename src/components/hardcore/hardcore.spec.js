@@ -18,23 +18,31 @@ describe('ms.hardcore', function(){
 
   describe('Collection instance', function(){
 
-    var instance;
+    it('should have default options', inject(function(collection){
 
-    beforeEach(inject(function(collection) {
-      instance = collection.init('NameOfCollection', {});
-    }));
-
-    it('should have default options', function(){
-
-      // making sure instance is allright
-      expect(instance.name).toEqual('NameOfCollection');
+      var instance = collection.init('NameOfCollection', {});
 
       // test all default states
       expect(instance.primKey).toEqual('id');
       expect(instance.cache).toBe(true);
       expect(instance.store).toBe(false);
       
-    });
+    }));
+
+    it('should override defaults if specified', inject(function(collection){
+
+      var instance = collection.init('NameOfCollection', {
+        cache: {special: 'case'},
+        store: true,
+        primKey: 'idea_id'
+      });
+
+      // test all default states
+      expect(instance.primKey).toEqual('idea_id');
+      expect(instance.cache).toEqual({special: 'case'});
+      expect(instance.store).toBe(true);
+      
+    }));
 
   });
 });
