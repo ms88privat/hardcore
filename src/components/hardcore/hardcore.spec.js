@@ -1,6 +1,6 @@
 'use strict';
 
-describe('ms.hardcore', function(){
+describe('ms.hardcore collection factory', function(){
 
   beforeEach(module('ms.hardcore'));
 
@@ -14,6 +14,31 @@ describe('ms.hardcore', function(){
 
     expect(instance.name).toEqual('NameOfCollection');
 
+  }));
+
+  it('should clear all of its cache', inject(function(collection){
+
+    var instance = collection.init('NameOfCollection', {});
+    var instance2 = collection.init('NameOfCollection2', {});
+
+    var data = {
+      data: 'example'
+    };
+    var data2 = {
+      data: 'example'
+    };
+    // test all default states
+    instance.save(data);
+    expect(instance.get()).toEqual(data);
+
+    instance2.save(data2);
+    expect(instance2.get()).toEqual(data2);
+
+    collection.class.clearCache();
+
+    expect(instance.get()).toBeUndefined();
+    expect(instance2.get()).toBeUndefined();
+    
   }));
 
   describe('Collection instance', function(){
@@ -41,6 +66,21 @@ describe('ms.hardcore', function(){
       expect(instance.primKey).toEqual('idea_id');
       expect(instance.cache).toEqual({special: 'case'});
       expect(instance.store).toBe(true);
+      
+    }));
+
+    it('should save data to cache', inject(function(collection){
+
+      var instance = collection.init('NameOfCollection', {});
+
+      var data = {
+        data: 'example'
+      };
+
+      instance.save(data);
+
+      expect(instance.get()).toEqual(data);
+
       
     }));
 

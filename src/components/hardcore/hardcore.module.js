@@ -8,7 +8,8 @@ export default angular.module('ms.hardcore', [])
 		return {
 			init:  function(name, args) {
 				return new Collection(name, args);
-			}
+			},
+			class: Collection
 		};
 	});
 
