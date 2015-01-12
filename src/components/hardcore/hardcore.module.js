@@ -1,15 +1,11 @@
 'use strict';
 /*jshint esnext: true */
 
-import Collection from './hardcore.base';
+import facilityService from './hardcore.facility';
+import resourceService from './hardcore.resource';
 
-export default angular.module('ms.hardcore', [])
-	.factory('collection', function() {
-		return {
-			init:  function(name, args) {
-				return new Collection(name, args);
-			},
-			class: Collection
-		};
-	});
+export default angular.module('ms.hardcore', ['ngResource', 'LocalForageModule'])
+	.factory('msFacility', facilityService)
+	.factory('msResource', resourceService)
+	;
 
