@@ -17,7 +17,7 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 		});
 	};
 
-	class Resource extends Facility.class {
+	class Resource extends Facility.class() {
 		constructor(name, {
 			cache = true,
 			store = false,
@@ -29,7 +29,8 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 			super(name, {
 				cache: cache,
 				store: store,
-				primKey: primKey
+				primKey: primKey,
+				resource: true // constructed through resource
 			});
 			this.url = url;
 			this.isArray = isArray;
@@ -42,7 +43,7 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 			var self = this;
 
 			var parseHandler =function(resp) {return self.parseResponse(resp);};
-			var saveHandler =function(resp) {return super.save(resp);};
+			var saveHandler =function(resp) {return super.save({data: resp});};
 			var error =function(err) {return $q.reject(err);};
 
 			return super.get().then(function(resp) {

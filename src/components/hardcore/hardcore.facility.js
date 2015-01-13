@@ -2,37 +2,104 @@
 /*jshint esnext: true */
 
 var facilityService = function($q, $localForage) {
-	var cCache = [];
+	var memCache = {};
 	
-	function generateKeyname (name) {
-		return 'prefix_' + name;
-	}
-
 	class Facility {
 		constructor(name, {
 			cache = true,
 			store = false,
-			primKey = 'id'
+			primKey = 'id',
+			resource = false
 		} = {}) {
 			this.name = name;
 			this.cache = cache;
 			this.store = store;
 			this.primKey = primKey;
-			this.keyname = generateKeyname(name);
+			this.resource = resource;
+			this.keyname = this.keynameGenerator(name);
 		}
 
-		save(data){
-			cCache[this.keyname] = data;
-			return $q.when(cCache[this.keyname]);
+		save({data, keyname = this.keyname, promise = true}){
+			var self = this;
+			var saved = self.saveToCache(keyname, data);
+			if (self.store) {
+				self.saveToStorage(keyname, data);
+			}
+			if (promise) {
+				return $q.when(saved);	
+			}
+			return saved;
 		}
 
-		get() {
-			return $q.when(cCache[this.keyname]);
+		get({id, keyname = this.keyname, promise = true} = {}) {
+			var self = this;
+			id = parseInt(id);
+			var data = angular.copy(self.getFromCache(keyname)); // copy need?
+			
+			// if no data in cache, look in storage if it is an option 
+			if (!data && self.store)  {
+				data = self.getFromStore(keyname);
+			} 
+
+			if (id) {
+				data = self.getById(data, id);
+			} 
+
+			if (promise) {
+				return $q.when(data);
+			}
+
+			return data;
+			
 		}
 
 		static clearCache() {
-			cCache = [];
-			return cCache;
+			memCache = {};
+			return memCache;
+		}
+
+		getById(data, id) {
+			if (data instanceof Array) {
+				var matrix = {};
+				matrix[this.primKey] = id;
+				return _.find(data, matrix);
+			}
+			return data; // if no array, do nothing
+		}
+
+		add({data, keyname = this.keyname}) {
+			var self = this;
+			var collection = self.get({keyname: keyname, promise: false});
+			console.log('collection', collection);
+			collection = collection.concat(data);
+			// collection = _.uniq(collection, self.primarykey); // todo: test if necesarry
+			return self.save({data: collection, keyname: keyname, promise: false});
+		}
+
+		getFromStore(keyname = this.keyname) {
+			return angular.fromJson(localStorage.getItem(keyname));
+		}
+
+		saveToStorage(keyname = this.keyname, data) {
+			return localStorage.setItem(keyname, angular.toJson(data));
+		}
+
+		getFromCache(keyname = this.keyname) {
+			return memCache[keyname];
+		}
+
+		saveToCache(keyname = this.keyname, data) {
+			memCache[keyname] = data;
+			return memCache[keyname]; 
+		}
+
+		keynameGenerator(name) {
+			if (this.resource) {
+				return 'appprefix_' + 'res_' + name;
+			} else {
+				return 'appprefix_' + 'fac_' + name;
+			}
+			
 		}
 
 	}
@@ -41,7 +108,12 @@ var facilityService = function($q, $localForage) {
 		create:  function(name, args) {
 			return new Facility(name, args);
 		},
-		class: Facility
+		class: function() {
+			return Facility;
+		} ,
+		cache: function() {
+			return memCache;
+		}
 	};
 };
 

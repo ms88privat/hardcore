@@ -13,6 +13,7 @@ describe('ms.hardcore msResource factory', function(){
     console.log('msResource', instance);
 
     expect(instance.name).toEqual('NameOfmsResource');
+    expect(instance.keyname).toEqual('appprefix_res_NameOfmsResource');
 
   }));
 
