@@ -69,11 +69,38 @@ var facilityService = function($q, $localForage) {
 
 		add({data, keyname = this.keyname}) {
 			var self = this;
-			var collection = self.get({keyname: keyname, promise: false});
-			console.log('collection', collection);
-			collection = collection.concat(data);
-			// collection = _.uniq(collection, self.primarykey); // todo: test if necesarry
-			return self.save({data: collection, keyname: keyname, promise: false});
+			var present = self.get({keyname: keyname, promise: false});
+			present = present.concat(data);
+			// present = _.uniq(present, self.primKey); // todo: test if necesarry
+			return self.save({data: present, keyname: keyname});
+		}
+
+		update({data, keyname = this.keyname, isList = false}) {
+			var self = this;
+			var present = self.get({keyname: keyname, promise: false});
+			// Sonderfall: keine Liste aber auch kein Model mit id
+			if(!isList && !(data.hasOwnProperty(self.primKey))) {
+				present = angular.extend({}, present, data);
+			}
+			if(isList) {
+				_.remove(present, function(model) {
+					_.forEach(data, function(data) {
+						if (data[self.primaryKey] && model[self.primaryKey] === data[self.primaryKey]) {
+							return true;
+						} 
+					});
+				});
+				present = present.concat(data);
+			} else {
+				var removedItems = window._.remove(present, function(model) {
+					if (data[self.primaryKey] && model[self.primaryKey] === data[self.primaryKey]) {return true;} // sonst undefinied vs undefiend
+				});
+				data = angular.extend({}, removedItems[0], data); // alte properties übernehmen "echtes update"
+				present.push(data);
+			}
+
+			return self.save(present, keyname);
+
 		}
 
 		getFromStore(keyname = this.keyname) {

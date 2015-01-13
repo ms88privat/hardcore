@@ -2,7 +2,19 @@
 /*jshint esnext: true */
 
 var resourceService = function(Facility, $q, $localForage, $resource, $http) {
-	var rCache = [];
+
+	var THROTTLE_TIME = 5000;
+
+
+	function timeDiff(timeOne, timeTwo) {
+		if (timeOne === 'now') {timeOne = new Date().getTime();}
+		if (timeOne < timeTwo) {
+			timeOne.setDate(timeOne.getDate() + 1);
+		}
+		var diff = timeOne - timeTwo;
+		return diff;
+	}
+
 
 	var transform = function(data, header) {
 		return data;
@@ -35,25 +47,41 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 			this.url = url;
 			this.isArray = isArray;
 			this.parse = parse;
+			this.request = {}; // this assoiative array is holding all of the last requests promises
+			this.requestTime = {};
 		}
 
-		get({params = {}} = {}) {
-			var url = url || this.url;
-			var isArray = isArray || this.isArray;
+		get({params = {}, url = this.url, isArray = this.isArray} = {}) {
 			var self = this;
 
-			var parseHandler =function(resp) {return self.parseResponse(resp);};
-			var saveHandler =function(resp) {return super.save({data: resp});};
-			var error =function(err) {return $q.reject(err);};
+			var parseHandler =function(resp) {
+				return self.parseResponse(resp);
+			};
+			var saveHandler =function(resp) {
+				return super.save({data: resp});
+			};
+			var error =function(err) {
+				return $q.reject(err);
+			};
 
-			return super.get().then(function(resp) {
-				if (resp) {return resp;}
-				return resObj(url, params, isArray).get().$promise
-					.then(parseHandler)
-					.then(saveHandler)
-					.catch(error)
-					;
-			})
+			var requestIdf = angular.toJson(url) + angular.toJson(params);
+			var diff = timeDiff('now', self.requestTime[requestIdf]);
+
+			if (!diff || diff > THROTTLE_TIME) {
+				// new request
+				self.requestTime[requestIdf] = new Date().getTime();
+				self.request[requestIdf] = super.get().then(function(resp) {
+					if (resp) {return resp;}
+					return resObj(url, params, isArray).get().$promise
+						.then(parseHandler)
+						.then(saveHandler)
+						.catch(error)
+						;
+				});
+	
+			} 
+
+			return self.request[requestIdf]; 
 
 		}
 
