@@ -85,21 +85,21 @@ var facilityService = function($q, $localForage) {
 			if(isList) {
 				_.remove(present, function(model) {
 					_.forEach(data, function(data) {
-						if (data[self.primaryKey] && model[self.primaryKey] === data[self.primaryKey]) {
+						if (data[self.primKey] && model[self.primKey] === data[self.primKey]) {
 							return true;
 						} 
 					});
 				});
 				present = present.concat(data);
 			} else {
+
 				var removedItems = window._.remove(present, function(model) {
-					if (data[self.primaryKey] && model[self.primaryKey] === data[self.primaryKey]) {return true;} // sonst undefinied vs undefiend
+					if (data[self.primKey] && model[self.primKey] === data[self.primKey]) {return true;} // sonst undefinied vs undefiend
 				});
 				data = angular.extend({}, removedItems[0], data); // alte properties übernehmen "echtes update"
 				present.push(data);
 			}
-
-			return self.save(present, keyname);
+			return self.save({data: present, keyname: keyname});
 
 		}
 

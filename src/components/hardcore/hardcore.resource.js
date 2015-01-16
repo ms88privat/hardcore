@@ -1,7 +1,6 @@
 'use strict';
-/*jshint esnext: true */
 
-var resourceService = function(Facility, $q, $localForage, $resource, $http) {
+var resourceService = function(Facility, $rootScope, $q, $localForage, $resource, $http) {
 
 	var THROTTLE_TIME = 5000;
 
@@ -37,6 +36,10 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 			url,
 			isArray = false,
 			parse = false,
+			errorHandler = function(name, error) {
+				$log.warn('errorHandler', name, error);
+				$rootScope.$broadcast('ms.hardcore.resource:error', name, error);
+			}
 		} = {}) {
 			super(name, {
 				cache: cache,
@@ -54,14 +57,8 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 		get({params = {}, url = this.url, isArray = this.isArray} = {}) {
 			var self = this;
 
-			var parseHandler =function(resp) {
-				return self.parseResponse(resp);
-			};
 			var saveHandler =function(resp) {
 				return super.save({data: resp});
-			};
-			var error =function(err) {
-				return $q.reject(err);
 			};
 
 			var requestIdf = angular.toJson(url) + angular.toJson(params);
@@ -69,21 +66,78 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 
 			if (!diff || diff > THROTTLE_TIME) {
 				// new request
+				$log.log('get() ', self.name);
 				self.requestTime[requestIdf] = new Date().getTime();
 				self.request[requestIdf] = super.get().then(function(resp) {
 					if (resp) {return resp;}
 					return resObj(url, params, isArray).get().$promise
-						.then(parseHandler)
+						.then(self.parseResponse.call(self))
 						.then(saveHandler)
-						.catch(error)
+						.catch(self.errorResponse.call(self))
 						;
 				});
 	
 			} 
 
 			return self.request[requestIdf]; 
-
 		}
+
+		create({
+			params = {}, 
+			data, 
+			url = this.url, 
+			isArray = this.isArray, 
+			keyname = this.keyname
+			} = {}) {
+		
+			// if (data.hasOwnProperty('id')) { // UPDATE IF ID
+			// 	return super.update({data: data, keyname: keyname});
+			// }
+
+			var self = this;
+
+			var addHandler =function(resp) {
+				// window._.defaults(resp, data); // daten vom server haben vorang, lokale hilfsparameter aber beibehalten
+				return super.add({data: resp, keyname: keyname});
+			};
+
+			// CREATE
+			return resObj(url, params).save(data).$promise
+				.then(self.parseResponse.call(self))
+				.then(addHandler)
+				.catch(self.errorResponse.call(self));
+		}
+
+		update({
+			params = {}, 
+			data, 
+			url = this.url, 
+			isArray = this.isArray, 
+			isList = false,
+			keyname = this.keyname
+			} = {}) {
+
+			var self = this;
+
+			var updateHandler =function(resp) {
+				resp = _.defaults(resp, data); // Daten mergen (es könnten nur Teile geupdated worden sein)
+				super.update({data: resp, keyname: keyname, isList: isList}); 
+			};
+
+			if (isList) { 
+				return resObj(url, params, isArray).update(data).$promise
+					.then(self.parseResponse.call(self))
+					.then(updateHandler)
+					.catch(self.errorResponse.call(self));
+			}
+
+			// UPDATE
+			return resObj(url, {id: data.id}).update(data).$promise
+				.then(self.parseResponse.call(self))
+				.then(updateHandler)
+				.catch(self.errorResponse.call(self));
+		}
+
 
 		parseResponse(resp) {
 			if (typeof this.parse === 'string') {
@@ -92,6 +146,11 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 				resp = this.parse(resp);
 			} 
 			return resp;
+		}
+
+		errorResponse(err) {
+			if (this.errorHandler) {this.errorHandler(this.name, err);}
+			return $q.reject(err);
 		}
 	}
 
@@ -103,6 +162,6 @@ var resourceService = function(Facility, $q, $localForage, $resource, $http) {
 	};
 };
 
-resourceService.$inject = ['msFacility', '$q', '$localForage', '$resource', '$http'];
+resourceService.$inject = ['msFacility', '$rootScope', '$q', '$localForage', '$resource', '$http'];
 
 export default resourceService;

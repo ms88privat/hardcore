@@ -194,5 +194,41 @@ describe('ms.hardcore msFacility factory', function(){
       
     }));
 
+    it('should update one object in array of objects', inject(function(msFacility, $rootScope){
+
+      var instance = msFacility.create('NameOfmsFacility', {
+      });
+
+      var ary = [];
+      var data1 = {id: 3, test: 'yolo'};
+      var data2 = {id: 25, test: 'was geht'};
+      ary.push(data1);
+      ary.push(data2);
+
+      instance.save({data: ary});
+
+      var updateData = {id: 25, test: 'was geht update!'};
+
+      instance.update({data: updateData});
+
+      var successHandler = jasmine.createSpy('success');
+      var errorHandler = jasmine.createSpy('error');
+
+      instance.get()
+        .then(successHandler)
+        .catch(errorHandler)
+        ;
+
+      $rootScope.$apply();
+
+      expect(successHandler).toHaveBeenCalledWith([
+        {id: 3, test: 'yolo'},
+        {id: 25, test: 'was geht update!'}
+        ]);
+      expect(errorHandler).not.toHaveBeenCalled();
+
+      
+    }));
+
   });
 });
