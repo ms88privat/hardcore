@@ -1,6 +1,6 @@
 'use strict';
 
-var resourceService = function(Facility, $rootScope, $q, $localForage, $resource, $http) {
+var resourceService = function(Facility, $log, $rootScope, $q, $resource, $http) {
 
 	var THROTTLE_TIME = 5000;
 
@@ -54,11 +54,22 @@ var resourceService = function(Facility, $rootScope, $q, $localForage, $resource
 			this.requestTime = {};
 		}
 
-		get({params = {}, url = this.url, isArray = this.isArray} = {}) {
+		static clear({res = true, fac = true} = {}) {
+			super.clear({res: res, fac: fac});
+		}
+
+		get({
+			params = {}, 
+			url = this.url, 
+			isArray = this.isArray, 
+			keyname = this.keyname,
+			reload = false
+			} = {}) {
 			var self = this;
 
 			var saveHandler =function(resp) {
-				return super.save({data: resp});
+				super.save({data: resp, keyname: keyname});
+				return resp;
 			};
 
 			var requestIdf = angular.toJson(url) + angular.toJson(params);
@@ -66,14 +77,14 @@ var resourceService = function(Facility, $rootScope, $q, $localForage, $resource
 
 			if (!diff || diff > THROTTLE_TIME) {
 				// new request
-				$log.log('get() ', self.name);
 				self.requestTime[requestIdf] = new Date().getTime();
-				self.request[requestIdf] = super.get().then(function(resp) {
-					if (resp) {return resp;}
+				self.request[requestIdf] = super.get({keyname: keyname}).then(function(resp) {
+					if (resp && !reload) {return resp;}
+					$log.log('get() ', self.name);
 					return resObj(url, params, isArray).get().$promise
-						.then(self.parseResponse.call(self))
+						.then(function(resp){return self.parseResponse(resp);})
 						.then(saveHandler)
-						.catch(self.errorResponse.call(self))
+						.catch(function(err){return self.errorResponse(err);})
 						;
 				});
 	
@@ -98,14 +109,15 @@ var resourceService = function(Facility, $rootScope, $q, $localForage, $resource
 
 			var addHandler =function(resp) {
 				// window._.defaults(resp, data); // daten vom server haben vorang, lokale hilfsparameter aber beibehalten
-				return super.add({data: resp, keyname: keyname});
+				super.add({data: resp, keyname: keyname});
+				return resp;
 			};
 
 			// CREATE
 			return resObj(url, params).save(data).$promise
-				.then(self.parseResponse.call(self))
+				.then(function(resp){return self.parseResponse(resp);})
 				.then(addHandler)
-				.catch(self.errorResponse.call(self));
+				.catch(function(err){return self.errorResponse(err);});
 		}
 
 		update({
@@ -122,20 +134,34 @@ var resourceService = function(Facility, $rootScope, $q, $localForage, $resource
 			var updateHandler =function(resp) {
 				resp = _.defaults(resp, data); // Daten mergen (es könnten nur Teile geupdated worden sein)
 				super.update({data: resp, keyname: keyname, isList: isList}); 
+				return resp;
 			};
 
 			if (isList) { 
 				return resObj(url, params, isArray).update(data).$promise
-					.then(self.parseResponse.call(self))
+					.then(function(resp){return self.parseResponse(resp);})
 					.then(updateHandler)
-					.catch(self.errorResponse.call(self));
+					.catch(function(err){return self.errorResponse(err);});
 			}
 
 			// UPDATE
 			return resObj(url, {id: data.id}).update(data).$promise
-				.then(self.parseResponse.call(self))
+				.then(function(resp){return self.parseResponse(resp);})
 				.then(updateHandler)
-				.catch(self.errorResponse.call(self));
+				.catch(function(err){return self.errorResponse(err);});
+		}
+
+		delete({url = this.url, params, keyname = this.keyname} = {}) {
+
+			var self = this;
+
+			var removeHandler = function(resp) {
+				return super.remove({keyname: keyname, id: params.id});
+			};
+
+			return resObj(url, params).remove().$promise
+				.then(removeHandler)
+				.catch(function(err){return self.errorResponse(err);});
 		}
 
 
@@ -162,6 +188,6 @@ var resourceService = function(Facility, $rootScope, $q, $localForage, $resource
 	};
 };
 
-resourceService.$inject = ['msFacility', '$rootScope', '$q', '$localForage', '$resource', '$http'];
+resourceService.$inject = ['msFacility', '$log', '$rootScope', '$q', '$resource', '$http'];
 
 export default resourceService;

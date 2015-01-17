@@ -5,7 +5,7 @@ describe('ms.hardcore msFacility factory', function(){
   beforeEach(module('ms.hardcore'));
 
 
-  it('should instantiate a msFacility with a name and keyname', 
+  it('should instantiate a msFacility with a name and id', 
     inject(function(msFacility) {
 
     var instance = msFacility.create('NameOfmsFacility');
@@ -13,7 +13,7 @@ describe('ms.hardcore msFacility factory', function(){
     console.log('msFacility', instance);
 
     expect(instance.name).toEqual('NameOfmsFacility');
-    expect(instance.keyname).toEqual('appprefix_fac_NameOfmsFacility');
+    expect(instance.id).toEqual(1);
 
   }));
 
@@ -22,23 +22,26 @@ describe('ms.hardcore msFacility factory', function(){
     var instance = msFacility.create('NameOfmsFacility');
     var instance2 = msFacility.create('NameOfmsFacility2');
 
+    expect(instance.id).toEqual(1);
+    expect(instance2.id).toEqual(2);
+
     var data = {
       data: 'example'
     };
     var data2 = {
-      data: 'example'
+      data: 'example2'
     };
     // test all default states
     instance.save({data: data});
     instance2.save({data: data2});
 
-    expect(msFacility.cache()[instance.keyname]).toEqual(data);
-    expect(msFacility.cache()[instance2.keyname]).toEqual(data2);
+    expect(msFacility.cache()[instance.resource][instance.id][instance.keyname]).toEqual(data);
+    expect(msFacility.cache()[instance2.resource][instance2.id][instance2.keyname]).toEqual(data2);
 
-    msFacility.class().clearCache();
+    msFacility.class().clear();
 
-    expect(msFacility.cache()[instance.keyname]).toBeUndefined();
-    expect(msFacility.cache()[instance2.keyname]).toBeUndefined();
+    expect(msFacility.cache()[instance.resource][instance.id][instance.keyname]).toBeUndefined();
+    expect(msFacility.cache()[instance2.resource][instance2.id][instance2.keyname]).toBeUndefined();
     
   }));
 

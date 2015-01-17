@@ -1,9 +1,25 @@
 'use strict';
 /*jshint esnext: true */
 
-var facilityService = function($q, $localForage) {
+var facilityService = function($q) {
+
+	function clearSomeLocalStorage(startsWith) {
+		var myLength = startsWith.length;
+		Object.keys(localStorage).forEach(function(key){ 
+			if (key.substring(0,myLength) == startsWith) {
+				localStorage.removeItem(key); 
+			} 
+		}); 
+	}
+
+	var _appprefix = 'myapp';
+
 	var memCache = {};
-	
+	memCache.false = {}; // facility
+	memCache.true = {};	// resource
+
+	var instanceCount = 0;
+
 	class Facility {
 		constructor(name, {
 			cache = true,
@@ -16,7 +32,13 @@ var facilityService = function($q, $localForage) {
 			this.store = store;
 			this.primKey = primKey;
 			this.resource = resource;
-			this.keyname = this.keynameGenerator(name);
+			this.id = ++instanceCount;
+
+
+			memCache[this.resource][this.id] = {};
+			// instance id can not be used as domain, because it can change in order when you reload the browser
+			this.domain = _appprefix + this.resource.toString() + this.name.toString();
+			this.keyname = name;
 		}
 
 		save({data, keyname = this.keyname, promise = true}){
@@ -53,9 +75,47 @@ var facilityService = function($q, $localForage) {
 			
 		}
 
-		static clearCache() {
-			memCache = {};
+		// clear all (or only res/fac)
+		static clear({res = true, fac = true} = {}) {
+
+			if (res) {resetMem(true); } // true = resource
+			if (fac) {resetMem(false); } // false = facility
+
 			return memCache;
+
+			function resetMem(type) {
+				// cache
+				memCache[type] = {};
+				for (var i = 1; i <= instanceCount; i++) {
+					memCache[type][i] = {};
+				}
+				// store
+				clearSomeLocalStorage(_appprefix + type.toString());
+			}
+		}
+
+		// clear hole instance
+		clear(keyname = false) {
+
+			if (keyname) {
+				memCache[this.resource][this.id][keyname] = {};
+				clearStorage(this.domain, keyname);
+			} else {
+				memCache[this.resource][this.id] = {};
+				clearStorage(this.domain, this.keyname);
+			}
+
+			return memCache;
+			
+			function clearStorage(domain, keyname) {
+				if (keyname) {
+					localStorage.removeItem(domain + keyname);
+				} else {
+					clearSomeLocalStorage(this.domain);
+				}
+				
+			}
+
 		}
 
 		getById(data, id) {
@@ -69,15 +129,15 @@ var facilityService = function($q, $localForage) {
 
 		add({data, keyname = this.keyname}) {
 			var self = this;
-			var present = self.get({keyname: keyname, promise: false});
+			var present = Facility.prototype.get.call(self, {keyname: keyname, promise: false});
 			present = present.concat(data);
 			// present = _.uniq(present, self.primKey); // todo: test if necesarry
-			return self.save({data: present, keyname: keyname});
+			return Facility.prototype.save.call(self, {data: present, keyname: keyname});
 		}
 
 		update({data, keyname = this.keyname, isList = false}) {
 			var self = this;
-			var present = self.get({keyname: keyname, promise: false});
+			var present = Facility.prototype.get.call(self, {keyname: keyname, promise: false});
 			// Sonderfall: keine Liste aber auch kein Model mit id
 			if(!isList && !(data.hasOwnProperty(self.primKey))) {
 				present = angular.extend({}, present, data);
@@ -94,39 +154,58 @@ var facilityService = function($q, $localForage) {
 			} else {
 
 				var removedItems = window._.remove(present, function(model) {
-					if (data[self.primKey] && model[self.primKey] === data[self.primKey]) {return true;} // sonst undefinied vs undefiend
+					if (data[self.primKey] && model[self.primKey] === data[self.primKey]) {return true;}
 				});
 				data = angular.extend({}, removedItems[0], data); // alte properties übernehmen "echtes update"
 				present.push(data);
 			}
-			return self.save({data: present, keyname: keyname});
+			return Facility.prototype.save.call(self, {data: present, keyname: keyname});
 
 		}
 
-		getFromStore(keyname = this.keyname) {
-			return angular.fromJson(localStorage.getItem(keyname));
-		}
+		remove({keyname = this.keyname, id}) {
+			var self = this;
 
-		saveToStorage(keyname = this.keyname, data) {
-			return localStorage.setItem(keyname, angular.toJson(data));
-		}
+			if(id) {
+				var present = Facility.prototype.get.call(self, {keyname: keyname, promise: false});
 
-		getFromCache(keyname = this.keyname) {
-			return memCache[keyname];
-		}
+				var removeById = function(collection, id) { // remove object in collection within keyname
+					_.remove(collection, function(model) {
+						if (model[self.primKey] === parseInt(id)) {return true;} // hotfix
+					});
+					return collection;
+				};
 
-		saveToCache(keyname = this.keyname, data) {
-			memCache[keyname] = data;
-			return memCache[keyname]; 
-		}
+				return Facility.prototype.save.call(self, {
+					data: removeById(present, id),
+					keyname: keyname,
+				});
 
-		keynameGenerator(name) {
-			if (this.resource) {
-				return 'appprefix_' + 'res_' + name;
+
 			} else {
-				return 'appprefix_' + 'fac_' + name;
+				return Facility.prototype.clear.call(self, {keyname: keyname});
 			}
-			
+
+		}
+
+
+
+		getFromStore(keyname) {
+			return angular.fromJson(localStorage.getItem(this.domain + keyname));
+		}
+
+		saveToStorage(keyname, data) {
+			return localStorage.setItem(this.domain + keyname, angular.toJson(data));
+		}
+
+		getFromCache(keyname) {
+			return memCache[this.resource][this.id][keyname];
+		}
+
+		saveToCache(keyname, data) {
+
+			memCache[this.resource][this.id][keyname] = data;
+			return data;
 		}
 
 	}
@@ -144,7 +223,7 @@ var facilityService = function($q, $localForage) {
 	};
 };
 
-facilityService.$inject = ['$q', '$localForage'];
+facilityService.$inject = ['$q'];
 
 export default facilityService;
 
